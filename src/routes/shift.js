@@ -9,4 +9,6 @@ s.get("/:id", shift.get)
 s.put("/:id", shift.up)
 s.delete("/:id", shift.del)
 
+s.get('/building/:id', shift.getByBuilding)
+
 module.exports= s;

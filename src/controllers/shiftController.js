@@ -123,6 +123,21 @@ class shift {
       res.status(500).json({ message: "Error deleting shift" });
     }
   }
+
+  async getByBuilding(req, res) {
+    try {
+      const managerId = req.id;
+      const { id } = req.params;
+      const result = await client.query(
+        'SELECT building_id from building_shift WHERE shift_id = $1',
+        [id]
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: "Error fetching building shifts" });
+    }
+  }
 }
 
 module.exports= new shift()

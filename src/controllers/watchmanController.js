@@ -1,13 +1,13 @@
-const client= require('../config/postgres')
+const client = require("../config/postgres");
 
 class watchmanController {
-    async up(req, res) {
+  async up(req, res) {
     try {
       const { username, name, country_code, phone_number } = req.body;
-      const { id , role }= req;
+      const { id, role } = req;
 
       if (!id) {
-        return res.status(400).json({ error: 'Watchman ID is required' });
+        return res.status(400).json({ error: "Watchman ID is required" });
       }
 
       const query = `
@@ -26,16 +26,16 @@ class watchmanController {
       const result = await client.query(query, values);
 
       if (result.rowCount === 0) {
-        return res.status(404).json({ error: 'Watchman not found' });
+        return res.status(404).json({ error: "Watchman not found" });
       }
 
       res.status(200).json({
-        message: 'Profile updated successfully',
+        message: "Profile updated successfully",
         watchman: result.rows[0],
       });
     } catch (e) {
-      console.error('Error updating profile:', e);
-      res.status(500).json({ error: 'Internal server error' });
+      console.error("Error updating profile:", e);
+      res.status(500).json({ error: "Internal server error" });
     }
   }
 
@@ -99,6 +99,20 @@ class watchmanController {
       res.status(500).json({ error: error.message });
     }
   }
+  async scan(req, res) {
+    try {
+      const { qr_code } = req.body;
+      const wid = req.id;
+      const query =
+        "INSERT INTO qr_scan (qr_code, watchman_id) VALUES ($1, $2) RETURNING *";
+      const values = [qr_code, wid];
+      await client.query(query, values);
+      res.status(201).json({ message: "QR code scanned successfully" });
+    } catch (e) {
+      console.log("Error Scanning:", e);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  }
 }
 
-module.exports= new watchmanController();
+module.exports = new watchmanController();

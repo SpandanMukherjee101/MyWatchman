@@ -94,6 +94,38 @@ const setupDatabase = async () => {
         FOREIGN KEY (building_id) REFERENCES building(id) ON DELETE CASCADE
       );
 
+      CREATE TABLE IF NOT EXISTS qr_details (
+        id SERIAL PRIMARY KEY,
+        qr_set VARCHAR(255) UNIQUE NOT NULL,
+        mid INTEGER NOT NULL,
+        area VARCHAR(25),
+        serial BOOLEAN DEFAULT FALSE,
+        shift_id INTEGER NOT NULL,
+        scan_interval INTEGER NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        FOREIGN KEY (mid) REFERENCES manager(id) ON DELETE CASCADE,
+        FOREIGN KEY (shift_id) REFERENCES shift(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS qr_code (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(255) UNIQUE NOT NULL,
+        location GEOGRAPHY(POINT, 4326) NOT NULL,
+        qr_details_id INTEGER NOT NULL,
+        created_at TIMESTAMPTZ DEFAULT NOW(),
+        FOREIGN KEY (qr_details_id) REFERENCES qr_details(id) ON DELETE CASCADE
+      );
+
+      CREATE TABLE IF NOT EXISTS qr_scan_log (
+        id SERIAL,
+        watchman_id INTEGER NOT NULL,
+        qr_code_id INTEGER NOT NULL,
+        scanned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        PRIMARY KEY (id, scanned_at),
+        FOREIGN KEY (watchman_id) REFERENCES watchman(id) ON DELETE CASCADE,
+        FOREIGN KEY (qr_code_id) REFERENCES qr_code(id) ON DELETE CASCADE
+      );
+
       CREATE TABLE IF NOT EXISTS duty_log (
         id SERIAL,
         watchman_id INTEGER NOT NULL,
@@ -135,6 +167,10 @@ const setupDatabase = async () => {
 
     await pgPool.query(`
       SELECT create_hypertable('log', 'timestamp', if_not_exists => TRUE);
+    `);
+
+    await pgPool.query(`
+      SELECT create_hypertable('qr_scan_log', 'scanned_at', if_not_exists => TRUE);
     `);
 
     await pgPool.query(`

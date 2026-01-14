@@ -12,4 +12,6 @@ routes.get('/getshift', wm.gets)
 routes.get("/building", wm.getb)
 routes.get ('/area', wm.geta)
 
+routes.post('/qrscan', wm.scan);
+
 module.exports= routes;

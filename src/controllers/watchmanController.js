@@ -104,6 +104,7 @@ class watchmanController {
     try {
       const { qr_code, sid, lat, lng } = req.body;
       const wid = req.id;
+
       const fetchQuery = `
           SELECT 
               qc.id AS qr_id,
@@ -128,9 +129,7 @@ class watchmanController {
       }
 
       if (target.shift_id !== parseInt(sid)) {
-        return res
-          .status(403)
-          .json({ message: "QR code does not belong to this shift" });
+        return res.status(403).json({ message: "QR code does not belong to this shift" });
       }
 
       if (target.distance_meters > 500) {
@@ -140,53 +139,53 @@ class watchmanController {
         });
       }
 
-      const logQuery = `
+      const lastLogQuery = `
           SELECT qr_code_id 
           FROM qr_scan_log 
-          WHERE watchman_id = $1 
-            AND sid = $2 
-            AND scanned_at::date = NOW()::date
-            AND qr_code_id IN (
-                SELECT id FROM qr_code WHERE qr_details_id = $3
-            )
+          WHERE watchman_id = $1 AND sid = $2 AND scanned_at::date = NOW()::date
+          ORDER BY scanned_at DESC 
+          LIMIT 1
       `;
-      const logResult = await client.query(logQuery, [
-        wid,
-        sid,
-        target.qr_details_id,
-      ]);
-      const scannedIds = logResult.rows.map((r) => r.qr_code_id);
+      const lastLogResult = await client.query(lastLogQuery, [wid, sid]);
+      const lastScannedId = lastLogResult.rows.length ? lastLogResult.rows[0].qr_code_id : null;
 
-      // if (scannedIds.includes(target.qr_id)) {
-      //   return res
-      //     .status(400)
-      //     .json({ message: "QR code already scanned today" });
-      // }
+      if (lastScannedId === target.qr_id) {
+         return res.status(400).json({ message: "You just scanned this QR code!" });
+      }
 
       if (target.serial) {
         const allQrsResult = await client.query(
           `SELECT id FROM qr_code WHERE qr_details_id = $1 ORDER BY id ASC`,
           [target.qr_details_id]
         );
+        const sequence = allQrsResult.rows.map((r) => r.id);
 
-        const allQrIds = allQrsResult.rows.map((r) => r.id);
+        let expectedId;
 
-        const nextExpectedId = allQrIds.find((id) => !scannedIds.includes(id));        
+        if (!lastScannedId || !sequence.includes(lastScannedId)) {
+          expectedId = sequence[0];
+        } else {
+          const lastIndex = sequence.indexOf(lastScannedId);
 
-        if (target.qr_id !== nextExpectedId) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "Invalid sequence. Please scan the previous QR codes first.",
-            });
+          if (lastIndex === sequence.length - 1) {
+            expectedId = sequence[0]; 
+          } else {
+            expectedId = sequence[lastIndex + 1];
+          }
+        }
+
+        if (target.qr_id !== expectedId) {
+           return res.status(400).json({
+             message: "Invalid sequence.",
+             hint: "Please follow the fixed order of checkpoints."
+           });
         }
       }
 
       const insertQuery = `
-                INSERT INTO qr_scan_log (qr_code_id, watchman_id, sid, location) 
-                VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326))
-            `;
+          INSERT INTO qr_scan_log (qr_code_id, watchman_id, sid, location) 
+          VALUES ($1, $2, $3, ST_SetSRID(ST_MakePoint($4, $5), 4326))
+      `;
       await client.query(insertQuery, [target.qr_id, wid, sid, lng, lat]);
 
       res.status(201).json({ message: "QR code scanned successfully" });

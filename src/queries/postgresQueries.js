@@ -121,9 +121,12 @@ const setupDatabase = async () => {
         watchman_id INTEGER NOT NULL,
         qr_code_id INTEGER NOT NULL,
         scanned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        location GEOGRAPHY(POINT, 4326),
+        sid INTEGER NOT NULL,
         PRIMARY KEY (id, scanned_at),
         FOREIGN KEY (watchman_id) REFERENCES watchman(id) ON DELETE CASCADE,
-        FOREIGN KEY (qr_code_id) REFERENCES qr_code(id) ON DELETE CASCADE
+        FOREIGN KEY (qr_code_id) REFERENCES qr_code(id) ON DELETE CASCADE,
+        FOREIGN KEY (sid) REFERENCES shift(id) ON DELETE CASCADE
       );
 
       CREATE TABLE IF NOT EXISTS duty_log (
